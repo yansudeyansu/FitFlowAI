@@ -1,0 +1,33 @@
+version: '3'
+services:
+  fitflowai-app:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/apache/default.conf:/etc/apache2/sites-available/000-default.conf
+    ports:
+      - "8000:80"
+    depends_on:
+      - fitflowai-db
+    environment:
+      DB_HOST: fitflowai-db
+      DB_DATABASE: fitflowai
+      DB_USERNAME: fitflowai_user
+      DB_PASSWORD: fitflowai_password
+
+  fitflowai-db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: fitflowai
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_USER: fitflowai_user
+      MYSQL_PASSWORD: fitflowai_password
+    volumes:
+      - fitflowai_dbdata:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+volumes:
+  fitflowai_dbdata:
