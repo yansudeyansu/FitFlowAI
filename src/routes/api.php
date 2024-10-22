@@ -2,6 +2,9 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\VerificationController;
+use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\HealthRecordController;
 use App\Http\Controllers\ActivityController;
@@ -9,6 +12,7 @@ use App\Http\Controllers\MealController;
 use App\Http\Controllers\SleepRecordController;
 use App\Http\Controllers\HealthGoalController;
 use App\Http\Controllers\AnalysisController;
+use App\Http\Controllers\ProfileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -16,44 +20,35 @@ use App\Http\Controllers\AnalysisController;
 |--------------------------------------------------------------------------
 */
 
-Route::post('/register', [UserController::class, 'register']);
-Route::post('/login', [UserController::class, 'login']);
+// API Version 1
+Route::prefix('v1')->group(function () {
+    /*
+    |--------------------------------------------------------------------------
+    | 認証関連のルート
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('auth')->group(function () {
+        // 認証不要のルート
+        Route::post('/register', [AuthController::class, 'register']);
+        Route::post('/login', [AuthController::class, 'login']);
+        Route::post('/forgot-password', [PasswordController::class, 'forgotPassword']);
+        Route::post('/reset-password', [PasswordController::class, 'resetPassword']);
+        
+        // メール認証関連
+        Route::post('/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])
+            ->name('verification.verify');
+        Route::post('/email/resend', [VerificationController::class, 'resend'])
+            ->middleware(['auth:sanctum', 'throttle:6,1'])
+            ->name('verification.resend');
 
-// 認証用
-Route::middleware('auth:sanctum')->group(function () {
-    // ログイン機能
-    Route::get('/user', [UserController::class, 'show']);
-    Route::put('/user', [UserController::class, 'update']);
-
-    // 健康記録
-    Route::post('/health-records', [HealthRecordController::class, 'store']);
-    Route::get('/health-records', [HealthRecordController::class, 'index']);
-    Route::get('/health-records/{id}', [HealthRecordController::class, 'show']);
-
-    // 活動
-    Route::post('/activities', [ActivityController::class, 'store']);
-    Route::get('/activities', [ActivityController::class, 'index']);
-    Route::get('/activities/{id}', [ActivityController::class, 'show']);
-
-    // 饮食
-    Route::post('/meals', [MealController::class, 'store']);
-    Route::get('/meals', [MealController::class, 'index']);
-    Route::get('/meals/{id}', [MealController::class, 'show']);
-
-    // 睡眠
-    Route::post('/sleep-records', [SleepRecordController::class, 'store']);
-    Route::get('/sleep-records', [SleepRecordController::class, 'index']);
-    Route::get('/sleep-records/{id}', [SleepRecordController::class, 'show']);
-
-    // 健康目标
-    Route::post('/health-goals', [HealthGoalController::class, 'store']);
-    Route::get('/health-goals', [HealthGoalController::class, 'index']);
-    Route::put('/health-goals/{id}', [HealthGoalController::class, 'update']);
-    Route::delete('/health-goals/{id}', [HealthGoalController::class, 'destroy']);
-
-    // 数据分析和建议
-    Route::get('/analysis/health-summary', [AnalysisController::class, 'healthSummary']);
-    Route::get('/analysis/activity-trends', [AnalysisController::class, 'activityTrends']);
-    Route::get('/analysis/nutrition-insights', [AnalysisController::class, 'nutritionInsights']);
-    Route::get('/recommendations', [AnalysisController::class, 'recommendations']);
-});
+        // 認証が必要なルート
+        Route::middleware('auth:sanctum')->group(function () {
+            Route::post('/logout', [AuthController::class, 'logout']);
+            Route::post('/logout-all', [AuthController::class, 'logoutFromAllDevices']);
+            Route::get('/refresh', [AuthController::class, 'refresh']);
+            
+            // パスワード変更
+            Route::post('/password/change', [PasswordController::class, 'changePassword']);
+        });
+    });
+}
