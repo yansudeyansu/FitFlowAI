@@ -19,37 +19,54 @@ class AuthController extends Controller
      * ユーザー登録
      */
     public function register(RegisterRequest $request)
-    {
-        try {
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'phone' => $request->phone,
-                'preferred_language' => $request->preferred_language ?? 'en',
-            ]);
+{
+    try {
+        $user = User::create([
+            'uuid' => (string) Str::uuid(),
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'phone' => $request->phone,
+            'preferred_language' => $request->preferred_language ?? 'ja',
+            'is_active' => true,
+            'login_attempts' => 0,
+        ]);
 
-            // プロフィール情報の作成
-            $user->profile()->create($request->validated());
+        // プロフィール情報の作成
+        $user->profile()->create($request->validated());
 
-            // メール認証の送信
-            $user->sendEmailVerificationNotification();
+        // メール認証の送信
+        $user->sendEmailVerificationNotification();
 
-            $token = $user->createToken('auth_token')->plainTextToken;
+        // ログイン履歴の作成（初回登録時）
+        $user->loginHistories()->create([
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'logged_in_at' => now(),
+            'device_type' => $this->detectDeviceType($request->userAgent()),
+        ]);
 
-            return response()->json([
-                'message' => 'User registered successfully',
-                'user' => new UserResource($user),
-                'token' => $token,
-            ], 201);
+        $token = $user->createToken('auth_token')->plainTextToken;
 
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Registration failed',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        return response()->json([
+            'message' => 'User registered successfully',
+            'user' => new UserResource($user),
+            'token' => $token,
+            'token_type' => 'Bearer',
+        ], 201);
+
+    } catch (\Exception $e) {
+        \Log::error('Registration failed: ' . $e->getMessage(), [
+            'email' => $request->email,
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'message' => 'Registration failed',
+            'error' => config('app.debug') ? $e->getMessage() : 'An error occurred during registration'
+        ], 500);
     }
+}
 
     /**
      * ログイン

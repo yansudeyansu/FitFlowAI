@@ -49,20 +49,36 @@ class PasswordController extends Controller
                     $user->forceFill([
                         'password' => Hash::make($password),
                         'remember_token' => Str::random(60),
+                        'login_attempts' => 0, // リセット時にロックアウトをクリア
+                        'last_login_attempt' => null,
                     ])->save();
-
+    
+                    // 既存のトークンを無効化
+                    $user->tokens()->delete();
+    
                     event(new PasswordReset($user));
                 }
             );
-
+    
             return $status === Password::PASSWORD_RESET
-                ? response()->json(['message' => 'Password has been reset'])
-                : response()->json(['message' => 'Unable to reset password'], 400);
-
+                ? response()->json([
+                    'message' => 'Password has been reset',
+                    'status' => 'success'
+                ])
+                : response()->json([
+                    'message' => 'Unable to reset password',
+                    'status' => 'error'
+                ], 400);
+    
         } catch (\Exception $e) {
+            \Log::error('Password reset failed: ' . $e->getMessage(), [
+                'email' => $request->email,
+                'trace' => $e->getTraceAsString()
+            ]);
+    
             return response()->json([
                 'message' => 'Failed to reset password',
-                'error' => $e->getMessage()
+                'error' => config('app.debug') ? $e->getMessage() : 'An error occurred during password reset'
             ], 500);
         }
     }
